@@ -39,3 +39,47 @@ class PostSCF(object):
         self.mol.emp2 = EMP2 + self.mol.energy   
         print('E(MP2) = ', self.mol.emp2.real) 
 
+    def TDHF(self):
+        """Routine to perform TDHF from RHF reference"""
+
+        nocc = self.mol.nocc
+        nvir = self.mol.nbasis - self.mol.nocc
+        nov  = nocc*nvir
+
+        eo = self.mol.MO[:nocc]
+        ev = self.mol.MO[nocc:]
+
+        assert(nocc == len(eo) and nvir == len(ev))
+
+        # (e_a - e_i) * delta_i,j * delta_a,b
+        A  = np.einsum('ab,ij->iajb', np.diag(ev), np.diag(np.ones(nocc)))
+        A -= np.einsum('ij,ab->iajb', np.diag(eo), np.diag(np.ones(nvir)))
+
+        # Get (ia|jb) and (ij|ab)
+        Siajb = np.asarray(self.mol.single_bar[:nocc,nocc:,:nocc,nocc:],dtype='float')
+        Sijab = np.asarray(self.mol.single_bar[:nocc,:nocc,nocc:,nocc:],dtype='float')
+
+        # add 2*(ia|jb) - (ij|ab) 
+        A += 2*Siajb - Sijab.swapaxes(1, 2)
+        A = A.reshape(nov,nov)
+       
+        # B = -2*(ia|jb) + (ja|ib)
+        B  = -2*Siajb
+        B += Siajb.swapaxes(0, 2)
+        B = B.reshape(nov,nov)
+
+        # Make TDHF matrix
+        TDHF = np.vstack((np.hstack((A,B)),np.hstack((-B,-A)))) 
+
+        E,C = np.linalg.eig(TDHF)
+        idx = E.argsort() 
+        E = E[idx]
+        C = C[:,idx]
+
+        print(E[nov:nov+3]*27.2114)
+
+
+        
+        
+
+
