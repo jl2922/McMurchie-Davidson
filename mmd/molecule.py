@@ -30,10 +30,10 @@ class Molecule(SCF,Forces):
         self.charge = charge
         self.multiplicity = multiplicity
         self.atoms = atomlist
-        self.nelec = sum([atom.charge for atom in atomlist]) - charge 
+        self.nelec = sum([atom.charge for atom in atomlist]) - charge
         self.nocc  = self.nelec//2
         self.is_built = False
-        
+
         # Read in basis set data
         import os
         cur_dir = os.path.dirname(__file__)
@@ -44,9 +44,9 @@ class Molecule(SCF,Forces):
 
     def formBasis(self):
         """Routine to create the basis from the input molecular geometry and
-           basis set. On exit, you should have a basis in self.bfs, which is a 
+           basis set. On exit, you should have a basis in self.bfs, which is a
            list of BasisFunction objects. This routine also defines the center
-           of nuclear charge. 
+           of nuclear charge.
         """
         self.bfs = []
         for atom in self.atoms:
@@ -101,7 +101,7 @@ class Molecule(SCF,Forces):
                    (0,3,0),(0,2,1),(0,1,2), (0,0,3)]
             }
         return shells[str(momentum)]
-        
+
     def sym2num(self,sym):
         """Routine that converts atomic symbol to atomic number"""
         symbol = [
@@ -126,14 +126,14 @@ class Molecule(SCF,Forces):
            At the end we get a basis, which is a dictionary of atoms and their
            basis functions: a tuple of angular momentum and the primitives
 
-           Return: {atom: [('angmom',[(exp,coef),...]), ('angmom',[(exp,...} 
+           Return: {atom: [('angmom',[(exp,coef),...]), ('angmom',[(exp,...}
         """
         basis = {}
-    
+
         with open(filename, 'r') as basisset:
             data = basisset.read().split('****')
-   
-        # Iterate through all atoms in basis set file 
+
+        # Iterate through all atoms in basis set file
         for i in range(1,len(data)):
             atomData = [x.split() for x in data[i].split('\n')[1:-1]]
             for idx,line in enumerate(atomData):
@@ -147,7 +147,7 @@ class Molecule(SCF,Forces):
                     basis[atom] = []
                     # now set up primitives for particular angular momentum
                     newPrim = True
-                # Perform the set up once per angular momentum 
+                # Perform the set up once per angular momentum
                 elif idx > 0 and newPrim:
                     momentum  = line[0]
                     numPrims  = int(line[1])
@@ -158,7 +158,7 @@ class Molecule(SCF,Forces):
                 else:
                    # Combine primitives with its angular momentum, add to basis
                    if momentum == 'SP':
-                       # Many basis sets share exponents for S and P basis 
+                       # Many basis sets share exponents for S and P basis
                        # functions so unfortunately we have to account for this.
                        prims.append((float(line[0].replace('D', 'E')),float(line[1].replace('D', 'E'))))
                        prims2.append((float(line[0].replace('D', 'E')),float(line[2].replace('D', 'E'))))
@@ -173,11 +173,11 @@ class Molecule(SCF,Forces):
                        if count == numPrims:
                            basis[atom].append((momentum,prims))
                            newPrim = True
-    
+
         return basis
-        
+
     def read_molecule(self,geometry):
-        """Routine to read in the charge, multiplicity, and geometry from the 
+        """Routine to read in the charge, multiplicity, and geometry from the
            input script. Coordinates are assumed to be Angstrom.
            Example:
 
@@ -195,7 +195,7 @@ class Molecule(SCF,Forces):
                   35.453,39.948]
         f = geometry.split('\n')
         # remove any empty lines
-        f = filter(None,f) 
+        f = filter(None,f)
         # First line is charge and multiplicity
         atomlist = []
         for line_number,line in enumerate(f):
@@ -203,7 +203,7 @@ class Molecule(SCF,Forces):
                 assert len(line.split()) == 2
                 charge = int(line.split()[0])
                 multiplicity = int(line.split()[1])
-            else: 
+            else:
                 if len(line.split()) == 0: break
                 assert len(line.split()) == 4
                 sym = self.sym2num(str(line.split()[0]))
@@ -215,22 +215,22 @@ class Molecule(SCF,Forces):
                 atom = Atom(charge=sym,mass=mass,
                             origin=np.asarray([x,y,z]))
                 atomlist.append(atom)
-    
+
         return charge, multiplicity, atomlist
 
     def one_electron_integrals(self):
         """Routine to set up and compute one-electron integrals"""
         N = self.nbasis
         # core integrals
-        self.S = np.zeros((N,N)) 
-        self.V = np.zeros((N,N)) 
-        self.T = np.zeros((N,N)) 
+        self.S = np.zeros((N,N))
+        self.V = np.zeros((N,N))
+        self.T = np.zeros((N,N))
         # dipole integrals
-        self.M = np.zeros((3,N,N)) 
-        self.mu = np.zeros(3,dtype='complex') 
- 
+        self.M = np.zeros((3,N,N))
+        self.mu = np.zeros(3,dtype='complex')
+
         # angular momentum
-        self.L = np.zeros((3,N,N)) 
+        self.L = np.zeros((3,N,N))
 
         self.nuc_energy = 0.0
         # Get one electron integrals
@@ -259,13 +259,13 @@ class Molecule(SCF,Forces):
                     = RxDel(self.bfs[i],self.bfs[j],self.center_of_charge,'y')
                 self.L[2,i,j] \
                     = RxDel(self.bfs[i],self.bfs[j],self.center_of_charge,'z')
-                self.L[:,j,i] = -1*self.L[:,i,j] 
+                self.L[:,j,i] = -1*self.L[:,i,j]
 
-        # Compute nuclear repulsion energy 
+        # Compute nuclear repulsion energy
         for pair in itertools.combinations(self.atoms,2):
             self.nuc_energy += pair[0].charge*pair[1].charge \
                               / np.linalg.norm(pair[0].origin - pair[1].origin)
-           
+
         # Preparing for SCF
         self.Core       = self.T + self.V
         self.X          = mat_pow(self.S,-0.5)
@@ -274,7 +274,7 @@ class Molecule(SCF,Forces):
     def two_electron_integrals(self):
         """Routine to setup and compute two-electron integrals"""
         N = self.nbasis
-        self.TwoE = np.zeros((N,N,N,N))  
+        self.TwoE = np.zeros((N,N,N,N))
         self.TwoE = doERIs(N,self.TwoE,self.bfs)
         self.TwoE = np.asarray(self.TwoE)
 
